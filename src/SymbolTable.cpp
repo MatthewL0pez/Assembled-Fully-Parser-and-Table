@@ -4,7 +4,7 @@
 SymbolTable::SymbolTable() : nextMemLocation_(10000) {
 }
 
-// Add a new identifier if it is not already in the symbol table
+// Add a new identifier if not in the symbol table
 bool SymbolTable::add(const std::string& name, const std::string& type) {   
     if (exists(name)) {
         return false; 
@@ -21,7 +21,7 @@ bool SymbolTable::add(const std::string& name, const std::string& type) {
     return true;
 }
 
-// Check if an identifier is already declared in the Table 
+// Check identifier is already in symboltable 
 bool SymbolTable::exists(const std::string& name) const {
     for (const auto& entry : entries_) {
         if (entry.identifier == name) {
@@ -42,4 +42,26 @@ void SymbolTable::print(std::ofstream& out) const {
             << entry.memLocation << '\t'
             << entry.type << '\n';
     }
+}
+
+// Return identifier type 
+std::string SymbolTable::getIDType(const std::string& name) const {
+    for (const auto& entry : entries_) {
+        if (entry.identifier == name) {
+            return entry.type;
+        }
+    }
+
+    return ""; // not found return empty string
+}
+
+// Return identifier memory address 
+int SymbolTable::getMemAddress(const std::string& name) const {
+    for (const auto& entry : entries_) {
+        if (entry.identifier == name) {
+            return entry.memLocation;
+        }
+    }
+
+    return -1; // not found return -1
 }
