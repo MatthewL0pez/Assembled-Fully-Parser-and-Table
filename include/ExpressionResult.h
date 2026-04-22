@@ -1,0 +1,1 @@
+// ExpressionResult.h = Use as a helper func to track the type checks 
