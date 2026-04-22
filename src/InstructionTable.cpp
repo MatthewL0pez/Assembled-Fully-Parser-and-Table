@@ -42,3 +42,13 @@ void InstructionTable::print(std::ofstream& out) const {
             << instruction.operand << '\n';
     }
 }
+
+// Return  instruction address
+int InstructionTable::getCurrentAddress() const {
+    return currentAddress_;
+}
+
+// Save instruction address 
+void InstructionTable::pushJumpAddress(int address) {
+    jumpStack_.push_back(address);
+}
