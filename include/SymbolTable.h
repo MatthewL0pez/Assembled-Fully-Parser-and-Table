@@ -15,6 +15,9 @@ class SymbolTable {
 public:
     SymbolTable();
 
+    // prints the full symbol table
+    void print(std::ofstream& out) const;
+
     // adds a new identifier to the symbol table
     // >>> returns false if it already exists <<< 
     bool add(const std::string& name, const std::string& type);
@@ -29,9 +32,6 @@ public:
     // gets the type of an identifier
     // >>> returns empty string if not found <<<
     std::string getIDType(const std::string& name) const;
-
-    // prints the full symbol table
-    void print(std::ofstream& out) const;
 
 private:
     std::vector<SymbolTableEntry> entries_;
