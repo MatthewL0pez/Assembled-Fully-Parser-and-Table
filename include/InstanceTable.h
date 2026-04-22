@@ -11,3 +11,30 @@ struct InstructionEntry {
     std::string op;
     std::string operand;
 };
+
+class InstructionTable {
+public:
+    InstructionTable();
+
+    // add an instruction InstanceTable
+    void generateInstruction(const std::string& op, const std::string& operand);
+
+    // get current instruction address
+    int getCurrentAddress() const;
+
+    // save jump instruction address for back patching
+    void pushJumpAddress(int address);
+
+    // update recent jump instruction
+    void backPatch(int jumpTarget);
+
+    // print the  instruction table
+    void print(std::ofstream& out) const;
+
+private:
+    std::vector<InstructionEntry> instructions_;
+    std::vector<int> jumpStack_;
+    int currentAddress_;
+};
+
+#endif
