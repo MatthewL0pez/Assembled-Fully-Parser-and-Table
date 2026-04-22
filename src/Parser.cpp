@@ -52,8 +52,7 @@ void Parser::error(const std::string& message) {
 bool Parser::isQualifier() const {
     return currentToken_.tokenCategory == T_Keyword &&
            (currentToken_.lexeme == "integer" ||
-            currentToken_.lexeme == "boolean" ||
-            currentToken_.lexeme == "real");
+            currentToken_.lexeme == "boolean");
 }
 
 // PERSON 3 - PARSER STATE NEEDS 
@@ -80,7 +79,6 @@ bool Parser::isRelopToken() const {
 bool Parser::isExpressionStart() const {
     return currentToken_.tokenCategory == T_Identifier ||
            currentToken_.tokenCategory == T_Integer ||
-           currentToken_.tokenCategory == T_Real ||
            currentToken_.lexeme == "(" ||
            currentToken_.lexeme == "-" ||
            currentToken_.lexeme == "true" ||
@@ -106,14 +104,8 @@ void Parser::Rat26S() {
 
 // R2
 void Parser::OptFunctionDefinitions() {
-    printProduction("<Opt Function Definitions> -> <Function Definitions> | <Empty>");
-
-    if (currentToken_.tokenCategory == T_Keyword &&
-        currentToken_.lexeme == "function") {
-        FunctionDefinitions();
-    } else {
-        Empty();
-    }
+    printProduction("<Opt Function Definitions> -> <Empty>");
+    Empty();
 }
 
 // R3
@@ -174,19 +166,20 @@ void Parser::Parameter() {
 
 // R8
 void Parser::Qualifier() {
-    printProduction("<Qualifier> -> integer | boolean | real");
+    printProduction("<Qualifier> -> integer | boolean");
 
     if (currentToken_.tokenCategory == T_Keyword &&
         currentToken_.lexeme == "integer") {
+        currentDeclarationType_ = "integer";
         match(T_Keyword, "integer");
-    } else if (currentToken_.tokenCategory == T_Keyword &&
-               currentToken_.lexeme == "boolean") {
+    }
+    else if (currentToken_.tokenCategory == T_Keyword &&
+             currentToken_.lexeme == "boolean") {
+        currentDeclarationType_ = "boolean";
         match(T_Keyword, "boolean");
-    } else if (currentToken_.tokenCategory == T_Keyword &&
-               currentToken_.lexeme == "real") {
-        match(T_Keyword, "real");
-    } else {
-        error("expected qualifier (integer, boolean, or real)");
+    }
+    else {
+        error("expected qualifier (integer or boolean)");
     }
 }
 
@@ -225,13 +218,30 @@ void Parser::DeclarationList() {
 // R12
 void Parser::Declaration() {
     printProduction("<Declaration> -> <Qualifier> <IDs>");
+
     Qualifier();
     IDs();
+
+    // done with this declaration
+    currentDeclarationType_.clear();
 }
 
 // R13
 void Parser::IDs() {
     printProduction("<IDs> -> <Identifier> , <IDs> | <Identifier>");
+
+    if (currentToken_.tokenCategory != T_Identifier) {
+        error("expected identifier");
+    }
+
+    std::string idName = currentToken_.lexeme;
+
+    // only add identifiers during declarations
+    if (!currentDeclarationType_.empty()) {
+        if (!symbolTable_.add(idName, currentDeclarationType_)) {
+            error("duplicate declaration for identifier '" + idName + "'");
+        }
+    }
 
     match(T_Identifier);
 
@@ -460,7 +470,7 @@ void Parser::Factor() {
 
 // R28
 void Parser::Primary() {
-    printProduction("<Primary> -> <Identifier> | <Integer> | <Identifier> ( <IDs> ) | ( <Expression> ) | <Real> | true | false");
+    printProduction("<Primary> -> <Identifier> | <Integer> | <Identifier> ( <IDs> ) | ( <Expression> ) | true | false");
 
     if (currentToken_.tokenCategory == T_Identifier) {
         match(T_Identifier);
@@ -474,9 +484,6 @@ void Parser::Primary() {
     }
     else if (currentToken_.tokenCategory == T_Integer) {
         match(T_Integer);
-    }
-    else if (currentToken_.tokenCategory == T_Real) {
-        match(T_Real);
     }
     else if (currentToken_.tokenCategory == T_Seperator &&
              currentToken_.lexeme == "(") {
@@ -497,4 +504,11 @@ void Parser::Primary() {
     }
 }
 
+// ASSIGNMENT 3 
+void Parser::printSymbolTable() {
+    symbolTable_.print(out_);
+}
 
+void Parser::printInstructionTable() {
+    instructionTable_.print(out_);
+}
