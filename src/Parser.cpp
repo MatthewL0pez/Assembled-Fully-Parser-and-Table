@@ -310,13 +310,31 @@ void Parser::Compound(){
 }
 
 //R17 Assign
-void Parser::Assign(){
+void Parser::Assign() {
     printProduction("<Assign> -> <Identifier> = <Expression> ;");
+
+    std::string idName = currentToken_.lexeme;
+
+    if (!symbolTable_.exists(idName)) {
+        error("identifier '" + idName + "' used before declaration");
+    }
+
+    std::string idType = symbolTable_.getIDType(idName);
+    int address = symbolTable_.getMemAddress(idName);
+
     match(T_Identifier);
     match(T_Operator, "=");
-    Expression();
+
+    ExpressionResult expr = Expression();
+
+    if (idType != expr.type) {
+        error("type mismatch in assignment to '" + idName + "'");
+    }
+
+    instructionTable_.generateInstruction("POPM", std::to_string(address));
+
     match(T_Seperator, ";");
-};
+}
 
 //R18 If
 void Parser::If() {
@@ -406,102 +424,180 @@ void Parser::Relop() {
 }
 
 // R25  (rewritten to remove left recursion)
-void Parser::Expression() {
+ExpressionResult Parser::Expression() {
     printProduction("<Expression> -> <Term> <Expression Prime>");
 
-    Term();
-    ExpressionPrime();
+    ExpressionResult left = Term();
+    return ExpressionPrime(left);
 }
 
-void Parser::ExpressionPrime() {
+
+ExpressionResult Parser::ExpressionPrime(ExpressionResult left) {
     printProduction("<Expression Prime> -> + <Term> <Expression Prime> | - <Term> <Expression Prime> | ε");
 
     if (currentToken_.tokenCategory == T_Operator &&
         currentToken_.lexeme == "+") {
+
         match(T_Operator, "+");
-        Term();
-        ExpressionPrime();
+        ExpressionResult right = Term();
+
+        if (left.type != "integer" || right.type != "integer") {
+            error("booleans cannot be used in arithmetic");
+        }
+
+        instructionTable_.generateInstruction("A", "");
+        left.type = "integer";
+
+        return ExpressionPrime(left);
     }
     else if (currentToken_.tokenCategory == T_Operator &&
              currentToken_.lexeme == "-") {
+
         match(T_Operator, "-");
-        Term();
-        ExpressionPrime();
+        ExpressionResult right = Term();
+
+        if (left.type != "integer" || right.type != "integer") {
+            error("booleans cannot be used in arithmetic");
+        }
+
+        instructionTable_.generateInstruction("S", "");
+        left.type = "integer";
+
+        return ExpressionPrime(left);
     }
+
+    return left;
 }
+
 
 // R26 (rewritten to remove left recursion)
-void Parser::Term() {
+ExpressionResult Parser::Term() {
     printProduction("<Term> -> <Factor> <Term Prime>");
 
-    Factor();
-    TermPrime();
+    ExpressionResult left = Factor();
+    return TermPrime(left);
 }
 
-void Parser::TermPrime() {
+ExpressionResult Parser::TermPrime(ExpressionResult left) {
     printProduction("<Term Prime> -> * <Factor> <Term Prime> | / <Factor> <Term Prime> | ε");
 
     if (currentToken_.tokenCategory == T_Operator &&
         currentToken_.lexeme == "*") {
+
         match(T_Operator, "*");
-        Factor();
-        TermPrime();
+        ExpressionResult right = Factor();
+
+        if (left.type != "integer" || right.type != "integer") {
+            error("booleans cannot be used in arithmetic");
+        }
+
+        instructionTable_.generateInstruction("M", "");
+        left.type = "integer";
+
+        return TermPrime(left);
     }
     else if (currentToken_.tokenCategory == T_Operator &&
              currentToken_.lexeme == "/") {
+
         match(T_Operator, "/");
-        Factor();
-        TermPrime();
+        ExpressionResult right = Factor();
+
+        if (left.type != "integer" || right.type != "integer") {
+            error("booleans cannot be used in arithmetic");
+        }
+
+        instructionTable_.generateInstruction("D", "");
+        left.type = "integer";
+
+        return TermPrime(left);
     }
+
+    return left;
 }
 
 // R27
-void Parser::Factor() {
+ExpressionResult Parser::Factor() {
     printProduction("<Factor> -> - <Primary> | <Primary>");
 
     if (currentToken_.tokenCategory == T_Operator &&
         currentToken_.lexeme == "-") {
+
         match(T_Operator, "-");
-        Primary();
-    } else {
-        Primary();
+
+        ExpressionResult result = Primary();
+
+        if (result.type != "integer") {
+            error("negative sign can only be used with integers");
+        }
+
+        instructionTable_.generateInstruction("PUSHI", "-1");
+        instructionTable_.generateInstruction("M", "");
+
+        return result;
     }
+
+    return Primary();
 }
 
 // R28
-void Parser::Primary() {
-    printProduction("<Primary> -> <Identifier> | <Integer> | <Identifier> ( <IDs> ) | ( <Expression> ) | true | false");
+ExpressionResult Parser::Primary() {
+    printProduction("<Primary> -> <Identifier> | <Integer> | ( <Expression> ) | true | false");
+
+    ExpressionResult result;
 
     if (currentToken_.tokenCategory == T_Identifier) {
-        match(T_Identifier);
+        std::string idName = currentToken_.lexeme;
 
-        if (currentToken_.tokenCategory == T_Seperator &&
-            currentToken_.lexeme == "(") {
-            match(T_Seperator, "(");
-            IDs();
-            match(T_Seperator, ")");
+        if (!symbolTable_.exists(idName)) {
+            error("identifier '" + idName + "' used before declaration");
         }
+
+        result.type = symbolTable_.getIDType(idName);
+
+        int address = symbolTable_.getMemAddress(idName);
+        instructionTable_.generateInstruction("PUSHM", std::to_string(address));
+
+        match(T_Identifier);
+        return result;
     }
     else if (currentToken_.tokenCategory == T_Integer) {
+        result.type = "integer";
+
+        instructionTable_.generateInstruction("PUSHI", currentToken_.lexeme);
+
         match(T_Integer);
+        return result;
     }
     else if (currentToken_.tokenCategory == T_Seperator &&
              currentToken_.lexeme == "(") {
+
         match(T_Seperator, "(");
-        Expression();
+        result = Expression();
         match(T_Seperator, ")");
+
+        return result;
     }
     else if (currentToken_.tokenCategory == T_Keyword &&
              currentToken_.lexeme == "true") {
+
+        result.type = "boolean";
+        instructionTable_.generateInstruction("PUSHI", "1");
+
         match(T_Keyword, "true");
+        return result;
     }
     else if (currentToken_.tokenCategory == T_Keyword &&
              currentToken_.lexeme == "false") {
+
+        result.type = "boolean";
+        instructionTable_.generateInstruction("PUSHI", "0");
+
         match(T_Keyword, "false");
+        return result;
     }
-    else {
-        error("expected primary");
-    }
+
+    error("expected primary");
+    return result;
 }
 
 // ASSIGNMENT 3 

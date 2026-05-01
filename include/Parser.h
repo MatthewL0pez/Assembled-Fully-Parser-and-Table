@@ -44,12 +44,14 @@ public:
     // Expreesions, conditions
     void Condition();
     void Relop();
-    void Expression();
-    void ExpressionPrime();
-    void Term();
-    void TermPrime();
-    void Factor();
-    void Primary();
+    ExpressionResult Expression();
+    ExpressionResult ExpressionPrime(ExpressionResult left);
+    ExpressionResult Term();
+    ExpressionResult TermPrime(ExpressionResult left);
+    ExpressionResult Factor();
+    ExpressionResult Primary();
+
+    
 
     // FOR ASSIGNMENT 3 TABLES
     void printSymbolTable(); 
