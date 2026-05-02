@@ -34,6 +34,9 @@ int main(int argc, char* argv[]) {
     Parser parser(lexer, outFile, true);
     parser.Rat26S();
 
+    parser.printInstructionTable();
+    parser.printSymbolTable();
+
     outFile << "\nParsing completed successfully. No syntax errors found.\n";
     outFile.close();
 

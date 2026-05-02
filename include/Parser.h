@@ -43,7 +43,7 @@ public:
     
     // Expreesions, conditions
     void Condition();
-    void Relop();
+    std::string Relop();
     ExpressionResult Expression();
     ExpressionResult ExpressionPrime(ExpressionResult left);
     ExpressionResult Term();

@@ -344,13 +344,30 @@ void Parser::If() {
     match(T_Seperator, "(");
     Condition();
     match(T_Seperator, ")");
+
+    int jmpzAddr = instructionTable_.getCurrentAddress();
+    instructionTable_.generateInstruction("JMPZ", "");
+    instructionTable_.pushJumpAddress(jmpzAddr);
+
     Statement();
 
     if (currentToken_.tokenCategory == T_Keyword &&
         currentToken_.lexeme == "otherwise") {
+
+        int jmpAddr = instructionTable_.getCurrentAddress();
+        instructionTable_.generateInstruction("JMP", "");
+
+        instructionTable_.backPatch(instructionTable_.getCurrentAddress());
+        instructionTable_.generateInstruction("LABEL", "");
+
+        instructionTable_.pushJumpAddress(jmpAddr);
+
         match(T_Keyword, "otherwise");
         Statement();
     }
+
+    instructionTable_.backPatch(instructionTable_.getCurrentAddress());
+    instructionTable_.generateInstruction("LABEL", "");
 
     match(T_Keyword, "fi");
 }
@@ -376,6 +393,7 @@ void Parser::Print() {
     match(T_Keyword, "write");
     match(T_Seperator, "(");
     Expression();
+    instructionTable_.generateInstruction("SOUT", "");
     match(T_Seperator, ")");
     match(T_Seperator, ";");
 }
@@ -386,7 +404,23 @@ void Parser::Scan() {
 
     match(T_Keyword, "read");
     match(T_Seperator, "(");
-    IDs();
+
+    do {
+        if (currentToken_.tokenCategory != T_Identifier) {
+            error("expected identifier in read statement");
+        }
+        std::string idName = currentToken_.lexeme;
+        if (!symbolTable_.exists(idName)) {
+            error("identifier '" + idName + "' used before declaration");
+        }
+        int address = symbolTable_.getMemAddress(idName);
+        instructionTable_.generateInstruction("SIN", "");
+        instructionTable_.generateInstruction("POPM", std::to_string(address));
+        match(T_Identifier);
+    } while (currentToken_.tokenCategory == T_Seperator &&
+             currentToken_.lexeme == "," &&
+             (match(T_Seperator, ","), true));
+
     match(T_Seperator, ")");
     match(T_Seperator, ";");
 }
@@ -396,10 +430,23 @@ void Parser::While() {
     printProduction("<While> -> while ( <Condition> ) <Statement>");
 
     match(T_Keyword, "while");
+
+    int topAddr = instructionTable_.getCurrentAddress();
+    instructionTable_.generateInstruction("LABEL", "");
+
     match(T_Seperator, "(");
     Condition();
     match(T_Seperator, ")");
+
+    int jmpzAddr = instructionTable_.getCurrentAddress();
+    instructionTable_.generateInstruction("JMPZ", "");
+    instructionTable_.pushJumpAddress(jmpzAddr);
+
     Statement();
+
+    instructionTable_.generateInstruction("JMP", std::to_string(topAddr));
+    instructionTable_.backPatch(instructionTable_.getCurrentAddress());
+    instructionTable_.generateInstruction("LABEL", "");
 }
 
 // R23
@@ -407,21 +454,28 @@ void Parser::Condition() {
     printProduction("<Condition> -> <Expression> <Relop> <Expression>");
 
     Expression();
-    Relop();
+    std::string op = Relop();
     Expression();
+
+    if      (op == ">")  instructionTable_.generateInstruction("GRT", "");
+    else if (op == "<")  instructionTable_.generateInstruction("LES", "");
+    else if (op == "==") instructionTable_.generateInstruction("EQU", "");
+    else if (op == "!=") instructionTable_.generateInstruction("NEQ", "");
+    else if (op == "=>") instructionTable_.generateInstruction("GEQ", "");
+    else if (op == "<=") instructionTable_.generateInstruction("LEQ", "");
 }
 
-// R24 
-void Parser::Relop() {
-    printProduction("<Relop> -> == | != | > | < | <= | =>");
-
-    if (isRelopToken()) {
-        std::string relopLexeme = currentToken_.lexeme;
-        match(T_Operator, relopLexeme);
-    } else {
-        error("expected relational operator");
-    }
-}
+// R24
+// void Parser::Relop() {
+//     printProduction("<Relop> -> == | != | > | < | <= | =>");
+//
+//     if (isRelopToken()) {
+//         std::string relopLexeme = currentToken_.lexeme;
+//         match(T_Operator, relopLexeme);
+//     } else {
+//         error("expected relational operator");
+//     }
+// }
 
 // R25  (rewritten to remove left recursion)
 ExpressionResult Parser::Expression() {
@@ -608,3 +662,18 @@ void Parser::printSymbolTable() {
 void Parser::printInstructionTable() {
     instructionTable_.print(out_);
 }
+
+std::string Parser::Relop() {
+    printProduction("<Relop> -> == | != | > | < | <= | =>");
+
+    if (isRelopToken()) {
+        std::string op = currentToken_.lexeme;
+        match(T_Operator, op);
+        return op;
+
+    }
+
+    error("Expected Relational Operator");
+    return "";
+}
+
